@@ -1,0 +1,9 @@
+## Interface: 20504
+## Title: AHAlchemyProfit
+## Notes: TBC alchemy profit calculator using Auctionator data
+## Author: AlexAlsing
+## Version: 1.0.0
+## SavedVariables: AHAlchemyProfitDB
+
+Core.lua
+UI.lua
