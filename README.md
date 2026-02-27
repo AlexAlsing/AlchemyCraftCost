@@ -20,6 +20,10 @@ Rounding is done with `math.floor(x + 0.5)` and values are shown in `g/s/c` form
 
 3. Start WoW and enable `AHAlchemyProfit` on character select.
 
+> Important: Do **not** copy a nested structure like `Interface/AddOns/AlchemyCraftCost/AHAlchemyProfit/...` because WoW only scans one folder level for `.toc` files.
+>
+> Correct layout is `Interface/AddOns/AHAlchemyProfit/<files>.toc`. If you currently have `Interface/AddOns/AlchemyCraftCost/AHAlchemyProfit/...`, move the **inner** `AHAlchemyProfit` folder up one level into `AddOns`.
+
 ## Faster dev loop (no repeated zip/reinstall)
 
 Use a direct folder link from this repo to your WoW AddOns folder so edits are visible immediately:
@@ -69,6 +73,8 @@ What you still need to verify each test cycle:
 Quick troubleshooting checklist:
 
 - Ensure there is only one active `AHAlchemyProfit` folder in `Interface/AddOns` (linked folder preferred).
+- If `/ahalchemy` does nothing and the addon is missing in AddOn List, verify where the `.toc` file sits: it must be directly inside `Interface/AddOns/<FolderName>/` (not in a subfolder one level deeper).
+- Multiple addon folders are fine (for example AtlasLoot modules), but **each folder must have its own `.toc` directly inside that folder** to be discovered by WoW.
 - Confirm Auctionator is enabled and has scanned data for your realm/faction.
 - If using AtlasLoot mats, verify AtlasLoot is loaded before AHAlchemyProfit data refresh.
 - If behavior seems cached, `/reload` once more and retest on a known recipe with stable prices.
