@@ -23,6 +23,7 @@ Choose **one** of these folder layouts in `Interface/AddOns`:
 
 3. Start WoW and enable `AHAlchemyProfit` on character select.
 
+
 ### Option B (also supported)
 1. Copy the whole repo folder as `AlchemyCraftCost` into `Interface/AddOns`.
 2. Keep `AlchemyCraftCost.toc` directly inside that folder root.
@@ -30,6 +31,14 @@ Choose **one** of these folder layouts in `Interface/AddOns`:
 
 > Important: Do **not** copy a nested structure like `Interface/AddOns/AlchemyCraftCost/AHAlchemyProfit/...` unless `AlchemyCraftCost.toc` exists directly in `Interface/AddOns/AlchemyCraftCost/`.
 > WoW scans addon folders by checking for `.toc` at the folder root level.
+=======
+> Important: Do **not** copy a nested structure like `Interface/AddOns/AlchemyCraftCost/AHAlchemyProfit/...` because WoW only scans one folder level for `.toc` files.
+>
+
+> Correct layout is `Interface/AddOns/AHAlchemyProfit/<files>.toc`. If you currently have `Interface/AddOns/AlchemyCraftCost/AHAlchemyProfit/...`, move the **inner** `AHAlchemyProfit` folder up one level into `AddOns`.
+=======
+> Current repo versions also include a compatibility loader (`AlchemyCraftCost.toc`) so `Interface/AddOns/AlchemyCraftCost/...` can still load, but using `Interface/AddOns/AHAlchemyProfit/...` is still the recommended layout.
+
 
 ## Faster dev loop (no repeated zip/reinstall)
 
@@ -81,8 +90,15 @@ Quick troubleshooting checklist:
 
 - Ensure there is only one active `AHAlchemyProfit` folder in `Interface/AddOns` (linked folder preferred).
 - If `/ahalchemy` does nothing and the addon is missing in AddOn List, verify where the `.toc` file sits: it must be directly inside `Interface/AddOns/<FolderName>/` (not in a subfolder one level deeper).
+
 - If you install as `AddOns/AlchemyCraftCost`, verify `AddOns/AlchemyCraftCost/AlchemyCraftCost.toc` exists.
 - Multiple addon folders are fine (for example AtlasLoot modules), but **each folder must have its own `.toc` directly inside that folder** to be discovered by WoW.
+=======
+
+- Multiple addon folders are fine (for example AtlasLoot modules), but **each folder must have its own `.toc` directly inside that folder** to be discovered by WoW.
+=======
+
+
 - Confirm Auctionator is enabled and has scanned data for your realm/faction.
 - If using AtlasLoot mats, verify AtlasLoot is loaded before AHAlchemyProfit data refresh.
 - If behavior seems cached, `/reload` once more and retest on a known recipe with stable prices.
