@@ -1,6 +1,6 @@
 local _, AHAP = ...
 
-local TAB_TITLES = { "Calculator", "PreValue", "Settings" }
+local TAB_TITLES = { "Calculator", "Recipes", "PreValue", "Settings" }
 
 local function CreateBackdrop(frame)
     frame:SetBackdrop({
@@ -24,6 +24,7 @@ function AHAP:ToggleMainFrame()
     else
         self.mainFrame:Show()
         self:RefreshCalculator()
+        self:RefreshRecipeToggleList()
         self:RefreshPresetList()
         self:LoadSettingsIntoUI()
     end
@@ -78,8 +79,9 @@ function AHAP:CreateUI()
 
     self.mainFrame = frame
     self:CreateCalculatorTab(frame.tabPanels[1])
-    self:CreatePreValueTab(frame.tabPanels[2])
-    self:CreateSettingsTab(frame.tabPanels[3])
+    self:CreateRecipesTab(frame.tabPanels[2])
+    self:CreatePreValueTab(frame.tabPanels[3])
+    self:CreateSettingsTab(frame.tabPanels[4])
     self:SelectTab(1)
 end
 
@@ -96,10 +98,86 @@ function AHAP:SelectTab(index)
     if index == 1 then
         self:RefreshCalculator()
     elseif index == 2 then
-        self:RefreshPresetList()
+        self:RefreshRecipeToggleList()
     elseif index == 3 then
+        self:RefreshPresetList()
+    elseif index == 4 then
         self:LoadSettingsIntoUI()
     end
+end
+
+function AHAP:CreateRecipesTab(panel)
+    local help = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    help:SetPoint("TOPLEFT", 8, -8)
+    help:SetText("Toggle recipes on/off for Calculator tab.")
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 8, -32)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(1, 1)
+    scrollFrame:SetScrollChild(content)
+
+    panel.recipeRows = {}
+    panel.scrollContent = content
+end
+
+function AHAP:GetOrCreateRecipeToggleRow(panel, index)
+    if panel.recipeRows[index] then
+        return panel.recipeRows[index]
+    end
+
+    local row = CreateFrame("Frame", nil, panel.scrollContent)
+    row:SetSize(860, 22)
+    if index == 1 then
+        row:SetPoint("TOPLEFT", 0, 0)
+    else
+        row:SetPoint("TOPLEFT", panel.recipeRows[index - 1], "BOTTOMLEFT", 0, -4)
+    end
+
+    local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    check:SetPoint("LEFT", 0, 0)
+    row.check = check
+
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("LEFT", check, "RIGHT", 4, 0)
+    text:SetJustifyH("LEFT")
+    text:SetWidth(780)
+    row.text = text
+
+    panel.recipeRows[index] = row
+    return row
+end
+
+function AHAP:RefreshRecipeToggleList()
+    if not self.mainFrame then
+        return
+    end
+
+    local panel = self.mainFrame.tabPanels[2]
+    local recipes = self.db.recipes or {}
+
+    table.sort(recipes, function(a, b)
+        return (a.output or "") < (b.output or "")
+    end)
+
+    for i, recipe in ipairs(recipes) do
+        local row = self:GetOrCreateRecipeToggleRow(panel, i)
+        row:Show()
+        row.text:SetText(recipe.output or recipe.name or "Unknown")
+        row.check:SetChecked(recipe.enabled ~= false)
+        row.check:SetScript("OnClick", function(btn)
+            AHAP:SetRecipeEnabled(recipe.output, btn:GetChecked() and true or false)
+            AHAP:RefreshCalculator()
+        end)
+    end
+
+    for i = #recipes + 1, #panel.recipeRows do
+        panel.recipeRows[i]:Hide()
+    end
+
+    panel.scrollContent:SetHeight(math.max(1, (#recipes * 26) + 20))
 end
 
 function AHAP:CreateCalculatorTab(panel)
@@ -295,7 +373,7 @@ function AHAP:CreatePreValueTab(panel)
 end
 
 function AHAP:LoadCopperIntoPresetFields(copper)
-    local panel = self.mainFrame.tabPanels[2]
+    local panel = self.mainFrame.tabPanels[3]
     local amount = math.max(0, self:RoundCopper(copper or 0))
     local g = math.floor(amount / 10000)
     local s = math.floor((amount % 10000) / 100)
@@ -306,7 +384,7 @@ function AHAP:LoadCopperIntoPresetFields(copper)
 end
 
 function AHAP:GetPresetCopperFromFields()
-    local panel = self.mainFrame.tabPanels[2]
+    local panel = self.mainFrame.tabPanels[3]
     local g = tonumber(panel.goldEdit:GetText() or "") or 0
     local s = tonumber(panel.silverEdit:GetText() or "") or 0
     local c = tonumber(panel.copperEdit:GetText() or "") or 0
@@ -317,7 +395,7 @@ function AHAP:GetPresetCopperFromFields()
 end
 
 function AHAP:SavePresetFromUI()
-    local panel = self.mainFrame.tabPanels[2]
+    local panel = self.mainFrame.tabPanels[3]
     local item = (panel.itemEdit:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if item == "" then
         self:Print("Enter an item name to save preset value.")
@@ -332,7 +410,7 @@ function AHAP:SavePresetFromUI()
 end
 
 function AHAP:RemovePresetFromUI()
-    local panel = self.mainFrame.tabPanels[2]
+    local panel = self.mainFrame.tabPanels[3]
     local item = (panel.itemEdit:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if item == "" then
         self:Print("Enter an item name to remove preset value.")
@@ -372,7 +450,7 @@ function AHAP:RefreshPresetList()
         return
     end
 
-    local panel = self.mainFrame.tabPanels[2]
+    local panel = self.mainFrame.tabPanels[3]
     local entries = {}
     for item, copper in pairs(self.db.presetValues) do
         table.insert(entries, { item = item, copper = copper })
@@ -422,9 +500,14 @@ function AHAP:CreateSettingsTab(panel)
     check.text:SetText("Use preset raid-night values")
     panel.usePresetCheck = check
 
+    local atlasCheck = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    atlasCheck:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 0, -10)
+    atlasCheck.text:SetText("Use AtlasLoot elixir materials when available")
+    panel.useAtlasLootMatsCheck = atlasCheck
+
     local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     saveBtn:SetSize(90, 24)
-    saveBtn:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 0, -14)
+    saveBtn:SetPoint("TOPLEFT", atlasCheck, "BOTTOMLEFT", 0, -14)
     saveBtn:SetText("Save")
     saveBtn:SetScript("OnClick", function()
         AHAP:SaveSettingsFromUI()
@@ -436,14 +519,15 @@ function AHAP:LoadSettingsIntoUI()
         return
     end
 
-    local panel = self.mainFrame.tabPanels[3]
+    local panel = self.mainFrame.tabPanels[4]
     panel.procEdit:SetText(tostring(self.db.settings.procRate or 0.20))
     panel.cutEdit:SetText(tostring(self.db.settings.ahCut or 0.05))
     panel.usePresetCheck:SetChecked(self.db.settings.usePresetValues and true or false)
+    panel.useAtlasLootMatsCheck:SetChecked(self.db.settings.useAtlasLootMats and true or false)
 end
 
 function AHAP:SaveSettingsFromUI()
-    local panel = self.mainFrame.tabPanels[3]
+    local panel = self.mainFrame.tabPanels[4]
 
     local procRate = tonumber(panel.procEdit:GetText() or "")
     local ahCut = tonumber(panel.cutEdit:GetText() or "")
@@ -453,7 +537,11 @@ function AHAP:SaveSettingsFromUI()
     self.db.settings.procRate = procRate
     self.db.settings.ahCut = ahCut
     self.db.settings.usePresetValues = panel.usePresetCheck:GetChecked() and true or false
+    self.db.settings.useAtlasLootMats = panel.useAtlasLootMatsCheck:GetChecked() and true or false
 
-    self:Print("Settings saved.")
+    local changed = self:ApplyAtlasLootMats()
+
+    self:Print("Settings saved. AtlasLoot sync updated " .. tostring(changed) .. " recipe(s).")
     self:RefreshCalculator()
+    self:RefreshRecipeToggleList()
 end

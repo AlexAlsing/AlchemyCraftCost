@@ -30,7 +30,12 @@ Rounding is done with `math.floor(x + 0.5)` and values are shown in `g/s/c` form
 - **Calculator**
   - Lists output item, craft cost, sell price, base profit, expected profit, and expected profit %
   - Shows missing prices count (mats/outputs with no found price)
+  - Only shows recipes currently enabled in the **Recipes** tab
   - Refresh button recalculates from current Auctionator/preset/settings data
+
+- **Recipes**
+  - Shows all tracked crafts with a checkbox per recipe
+  - Toggle recipes on/off to control which crafts are included in the Calculator
 
 - **PreValue**
   - Set custom raid-night preset value per item name in g/s/c
@@ -41,6 +46,18 @@ Rounding is done with `math.floor(x + 0.5)` and values are shown in `g/s/c` form
   - Set Proc Rate (default `0.20`)
   - Set AH Cut (default `0.05`)
   - Toggle `Use preset raid-night values` (default `true`)
+  - Toggle `Use AtlasLoot elixir materials when available` (default `true`)
+
+## AtlasLoot integration
+
+- On addon load (and when Settings are saved), AHAlchemyProfit attempts to read AtlasLoot tables if AtlasLoot is loaded.
+- For recipes with `Elixir` in the output name, the addon tries to replace local material lists with AtlasLoot reagent data.
+- If AtlasLoot data cannot be found for a recipe, the existing local material list is kept.
+
+## User action required after update
+
+- Open **Settings** and confirm whether `Use AtlasLoot elixir materials when available` should stay enabled for your setup.
+- Open **Recipes** and tick/untick the crafts you want included in profit calculations.
 
 ## Included Recipes
 
