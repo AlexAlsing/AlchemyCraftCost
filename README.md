@@ -20,6 +20,59 @@ Rounding is done with `math.floor(x + 0.5)` and values are shown in `g/s/c` form
 
 3. Start WoW and enable `AHAlchemyProfit` on character select.
 
+## Faster dev loop (no repeated zip/reinstall)
+
+Use a direct folder link from this repo to your WoW AddOns folder so edits are visible immediately:
+
+1. Keep this repo on your local machine.
+2. Remove any old copied `AHAlchemyProfit` folder from `Interface/AddOns`.
+3. Create a link from your repo folder to AddOns:
+
+   **Windows (PowerShell as Administrator)**
+   ```powershell
+   New-Item -ItemType Junction \
+     -Path "C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns\AHAlchemyProfit" \
+     -Target "C:\path\to\AlchemyCraftCost\AHAlchemyProfit"
+   ```
+
+   **macOS / Linux**
+   ```bash
+   ln -s /path/to/AlchemyCraftCost/AHAlchemyProfit /path/to/WoW/_anniversary_/Interface/AddOns/AHAlchemyProfit
+   ```
+
+4. Edit files in this repo, then in-game run `/reload` to test changes instantly.
+
+Recommended workflow to avoid unnecessary pushes:
+
+- Develop and test locally first (`/reload` after each change).
+- Use `/ahap_debug` to verify Auctionator data before committing.
+- Commit only when a change is verified in-game.
+- Push when a feature/fix is ready, not for every small tweak.
+
+### Will this guarantee fewer problems?
+
+Short answer: **it will make iteration much faster**, but it does not guarantee zero issues.
+
+What this setup solves well:
+
+- No repeated zip export/copy for every small change.
+- Faster feedback loop (`save file -> /reload -> verify`).
+- Lower risk of testing stale addon files from an old copied folder.
+
+What you still need to verify each test cycle:
+
+1. Run `/reload` after edits.
+2. Use `/ahap_debug` if prices are missing or look wrong.
+3. Confirm **Recipes** selection and **Settings** toggles are correct for your character/profile.
+4. Click **Refresh** in **Calculator** after changing settings/presets.
+
+Quick troubleshooting checklist:
+
+- Ensure there is only one active `AHAlchemyProfit` folder in `Interface/AddOns` (linked folder preferred).
+- Confirm Auctionator is enabled and has scanned data for your realm/faction.
+- If using AtlasLoot mats, verify AtlasLoot is loaded before AHAlchemyProfit data refresh.
+- If behavior seems cached, `/reload` once more and retest on a known recipe with stable prices.
+
 ## Usage
 
 - `/ahalchemy` → open/close addon UI
