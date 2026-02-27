@@ -68,6 +68,7 @@ local DEFAULT_SETTINGS = {
     procRate = 0.20,
     ahCut = 0.05,
     usePresetValues = true,
+    useAtlasLootMats = true,
 }
 
 local function ShallowCopy(src)
@@ -84,6 +85,7 @@ local function DeepCopyRecipes(src)
         local cloned = {
             name = recipe.name,
             output = recipe.output,
+            enabled = recipe.enabled ~= false,
             mats = {},
         }
         for j, mat in ipairs(recipe.mats) do
@@ -92,6 +94,14 @@ local function DeepCopyRecipes(src)
         out[i] = cloned
     end
     return out
+end
+
+local function NormalizeRecipes(recipes)
+    for _, recipe in ipairs(recipes) do
+        if recipe.enabled == nil then
+            recipe.enabled = true
+        end
+    end
 end
 
 function AHAP:RoundCopper(value)
@@ -130,11 +140,151 @@ function AHAP:EnsureDB()
     if db.settings.procRate == nil then db.settings.procRate = DEFAULT_SETTINGS.procRate end
     if db.settings.ahCut == nil then db.settings.ahCut = DEFAULT_SETTINGS.ahCut end
     if db.settings.usePresetValues == nil then db.settings.usePresetValues = DEFAULT_SETTINGS.usePresetValues end
+    if db.settings.useAtlasLootMats == nil then db.settings.useAtlasLootMats = DEFAULT_SETTINGS.useAtlasLootMats end
 
     db.presetValues = db.presetValues or {}
     db.recipes = db.recipes or DeepCopyRecipes(DEFAULT_RECIPES)
+    NormalizeRecipes(db.recipes)
 
     self.db = db
+end
+
+local function NormalizeName(value)
+    if type(value) ~= "string" then
+        return nil
+    end
+    return string.lower((value:gsub("^%s+", ""):gsub("%s+$", "")))
+end
+
+local function AddAtlasRoot(list, seen, candidate)
+    if type(candidate) ~= "table" or seen[candidate] then
+        return
+    end
+    seen[candidate] = true
+    table.insert(list, candidate)
+end
+
+function AHAP:GetAtlasLootRootTables()
+    local roots = {}
+    local seen = {}
+
+    AddAtlasRoot(roots, seen, _G.AtlasLoot)
+    AddAtlasRoot(roots, seen, _G.AtlasLoot_Data)
+    AddAtlasRoot(roots, seen, _G.AtlasLootData)
+
+    if type(_G.AtlasLoot) == "table" then
+        AddAtlasRoot(roots, seen, _G.AtlasLoot.Data)
+        AddAtlasRoot(roots, seen, _G.AtlasLoot.db)
+    end
+
+    return roots
+end
+
+local function ExtractReagentList(candidate)
+    if type(candidate) ~= "table" then
+        return nil
+    end
+
+    local possibleKeys = { "reagents", "mats", "materials", "ingredients", "cost" }
+    for _, key in ipairs(possibleKeys) do
+        local value = candidate[key]
+        if type(value) == "table" and #value > 0 then
+            return value
+        end
+    end
+
+    return nil
+end
+
+local function ParseAtlasReagents(list)
+    local mats = {}
+    for _, mat in ipairs(list) do
+        if type(mat) == "table" then
+            local name = mat.name or mat.itemName or mat.label
+            local qty = mat.qty or mat.count or mat.amount or mat.num
+            if type(name) == "string" and type(qty) == "number" and qty > 0 then
+                table.insert(mats, { name = name, qty = math.floor(qty) })
+            end
+        end
+    end
+
+    if #mats > 0 then
+        return mats
+    end
+
+    return nil
+end
+
+function AHAP:FindAtlasLootMatsForOutput(outputName)
+    local target = NormalizeName(outputName)
+    if not target then
+        return nil
+    end
+
+    local roots = self:GetAtlasLootRootTables()
+    if #roots == 0 then
+        return nil
+    end
+
+    local visited = {}
+    local stack = {}
+    for _, root in ipairs(roots) do
+        table.insert(stack, root)
+    end
+
+    local maxNodes = 12000
+    local scanned = 0
+    while #stack > 0 and scanned < maxNodes do
+        local node = table.remove(stack)
+        if type(node) == "table" and not visited[node] then
+            visited[node] = true
+            scanned = scanned + 1
+
+            local names = {
+                node.output,
+                node.name,
+                node.itemName,
+                node.recipeName,
+                node.spellName,
+            }
+            for _, candidateName in ipairs(names) do
+                if NormalizeName(candidateName) == target then
+                    local reagentList = ExtractReagentList(node)
+                    local parsed = ParseAtlasReagents(reagentList)
+                    if parsed then
+                        return parsed
+                    end
+                end
+            end
+
+            for _, value in pairs(node) do
+                if type(value) == "table" and not visited[value] then
+                    table.insert(stack, value)
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+function AHAP:ApplyAtlasLootMats()
+    if not self.db or not self.db.settings.useAtlasLootMats then
+        return 0
+    end
+
+    local changed = 0
+    for _, recipe in ipairs(self.db.recipes) do
+        if type(recipe.output) == "string" and string.find(string.lower(recipe.output), "elixir", 1, true) then
+            local atlasMats = self:FindAtlasLootMatsForOutput(recipe.output)
+            if atlasMats then
+                recipe.mats = atlasMats
+                changed = changed + 1
+            end
+        end
+    end
+
+    return changed
 end
 
 function AHAP:GetAuctionatorRootTables()
@@ -312,11 +462,32 @@ function AHAP:GetAllRecipeResults()
     local rows = {}
     local missingCount = 0
     for _, recipe in ipairs(self.db.recipes) do
-        local result = self:CalculateRecipe(recipe)
-        missingCount = missingCount + result.missing
-        table.insert(rows, result)
+        if recipe.enabled ~= false then
+            local result = self:CalculateRecipe(recipe)
+            missingCount = missingCount + result.missing
+            table.insert(rows, result)
+        end
     end
     return rows, missingCount
+end
+
+function AHAP:SetRecipeEnabled(outputName, enabled)
+    for _, recipe in ipairs(self.db.recipes) do
+        if recipe.output == outputName then
+            recipe.enabled = enabled and true or false
+            return true
+        end
+    end
+    return false
+end
+
+function AHAP:GetRecipeByOutput(outputName)
+    for _, recipe in ipairs(self.db.recipes) do
+        if recipe.output == outputName then
+            return recipe
+        end
+    end
+    return nil
 end
 
 function AHAP:ParseNumber(text, fallback)
@@ -394,6 +565,7 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         AHAP:EnsureDB()
+        AHAP:ApplyAtlasLootMats()
         AHAP:Print("Loaded. Use /ahalchemy to open the calculator.")
     end
 end)
