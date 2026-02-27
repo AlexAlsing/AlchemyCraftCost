@@ -1,0 +1,9 @@
+## Interface: 20504
+## Title: AHAlchemyProfit
+## Notes: Compatibility loader when repo root is installed as addon folder
+## Author: AlexAlsing
+## Version: 1.0.0
+## SavedVariables: AHAlchemyProfitDB
+
+AHAlchemyProfit/Core.lua
+AHAlchemyProfit/UI.lua
